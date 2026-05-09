@@ -194,6 +194,7 @@ let musicStarted = false;
 let audioCtx;
 let soundtrackInterval;
 let demoMode = false;
+let sfxCtx = null;
 const levelThemes = [
     ['#08111f','#102542'],
     ['#1a0033','#330066'],
@@ -617,13 +618,11 @@ function stopRetroSoundtrack() {
 
 function startDemoMode() {
     demoMode = true;
-    startGame(1);
+    startGame(1, true);
 }
 
-function startGame(mode) {
-    if(!demoMode) {
-        demoMode = false;
-    }
+function startGame(mode, isDemo = false) {
+    demoMode = isDemo;
     gameMode = mode;
     menu.classList.add('hidden');
     gameOverScreen.classList.add('hidden');
@@ -765,6 +764,9 @@ function checkLevelComplete() {
         gameRunning = false;
 
         if (currentLevel >= levels.length - 1) {
+            stopRetroSoundtrack();
+            saveHighscore(score);
+            renderHighscores();
             finalScore.innerText = `Du hast alle Level geschafft! Punkte: ${score}`;
             gameOverScreen.classList.remove('hidden');
         } else {
@@ -779,12 +781,12 @@ function nextLevel() {
     currentLevel++;
     createBricks(currentLevel);
 
+    resetBalls();
+
     balls.forEach(ball => {
         ball.dx *= 1.2;
         ball.dy *= 1.2;
     });
-
-    resetBalls();
     gameRunning = true;
 }
 
@@ -829,6 +831,7 @@ function renderHighscores() {
 }
 
 function backToMenu() {
+    demoMode = false;
     stopRetroSoundtrack();
     menu.classList.remove('hidden');
     pauseScreen.classList.add('hidden');
@@ -838,6 +841,7 @@ function backToMenu() {
 }
 
 function showHighscores() {
+    menu.classList.add('hidden');
     finalScore.innerText = 'Die besten Spieler des Systems';
     renderHighscores();
     gameOverScreen.classList.remove('hidden');
@@ -971,21 +975,27 @@ function drawBackgroundStars() {
 
 function playBeep(freq, duration) {
     try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
+        if(!sfxCtx) {
+            sfxCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        const oscillator = sfxCtx.createOscillator();
+        const gainNode = sfxCtx.createGain();
 
         oscillator.type = 'sine';
         oscillator.frequency.value = freq;
+
         oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
+        gainNode.connect(sfxCtx.destination);
+
+        gainNode.gain.setValueAtTime(0.04, sfxCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, sfxCtx.currentTime + duration);
 
         oscillator.start();
-        gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
-
-        oscillator.stop(audioCtx.currentTime + duration);
-    } catch(err) {}
+        oscillator.stop(sfxCtx.currentTime + duration);
+    } catch(err) {
+        console.warn('Audiofehler', err);
+    }
 }
 
 function gameLoop() {
