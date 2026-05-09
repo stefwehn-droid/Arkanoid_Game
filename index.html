@@ -118,6 +118,7 @@ kbd {
     <button onclick="startGame(1)">Einzelspieler</button>
     <button onclick="startGame(2)">Zweispieler</button>
     <button onclick="showHighscores()">Highscores</button>
+    <button onclick="startDemoMode()">🤖 Demo Modus</button>
 
     <div class="info">
         <p><strong>Spieler 1:</strong> <kbd>A</kbd> / <kbd>D</kbd></p>
@@ -192,6 +193,7 @@ let highscores = JSON.parse(localStorage.getItem('neonArkanoidHighscores')) || [
 let musicStarted = false;
 let audioCtx;
 let soundtrackInterval;
+let demoMode = false;
 const levelThemes = [
     ['#08111f','#102542'],
     ['#1a0033','#330066'],
@@ -244,7 +246,7 @@ const levels = [
 ];
 
 class Paddle {
-    constructor(x, y, controls, color) {
+    constructor(x, y, controls, color, ai = false) {
         this.x = x;
         this.y = y;
         this.width = 160;
@@ -252,11 +254,25 @@ class Paddle {
         this.speed = 9;
         this.controls = controls;
         this.color = color;
+        this.ai = ai;
     }
 
     update() {
+        if(this.ai && balls.length > 0) {
+            const targetBall = balls[0];
+            const targetX = targetBall.x - this.width / 2;
+
+            if(targetX > this.x + 10) {
+                this.x += this.speed * 0.92;
+            }
+            else if(targetX < this.x - 10) {
+                this.x -= this.speed * 0.92;
+            }
+        }
+        else {
         if (keys[this.controls.left]) this.x -= this.speed;
         if (keys[this.controls.right]) this.x += this.speed;
+        }
 
         if (this.x < 0) this.x = 0;
         if (this.x + this.width > canvas.width)
@@ -599,7 +615,15 @@ function stopRetroSoundtrack() {
     musicStarted = false;
 }
 
+function startDemoMode() {
+    demoMode = true;
+    startGame(1);
+}
+
 function startGame(mode) {
+    if(!demoMode) {
+        demoMode = false;
+    }
     gameMode = mode;
     menu.classList.add('hidden');
     gameOverScreen.classList.add('hidden');
@@ -608,10 +632,10 @@ function startGame(mode) {
     lives = 3;
 
     player1 = new Paddle(canvas.width/2 - 180, canvas.height - 60,
-        {left:'a', right:'d'}, '#00ffff');
+        {left:'a', right:'d'}, '#00ffff', demoMode);
 
     player2 = new Paddle(canvas.width/2 + 20, canvas.height - 100,
-        {left:'ArrowLeft', right:'ArrowRight'}, '#ff00ff');
+        {left:'ArrowLeft', right:'ArrowRight'}, '#ff00ff', demoMode);
 
     createBricks(currentLevel);
     resetBalls();
@@ -724,6 +748,11 @@ function drawHUD() {
     ctx.fillText(`Punkte: ${score}`, 20, 40);
     ctx.fillText(`Leben: ${lives}`, 20, 75);
     ctx.fillText(`Level: ${currentLevel + 1}/5`, 20, 110);
+
+    if(demoMode) {
+        ctx.fillStyle = '#00ff99';
+        ctx.fillText('🤖 DEMO MODUS', canvas.width - 260, 80);
+    }
 
     if (gameMode === 2) {
         ctx.fillStyle = '#ff66ff';
